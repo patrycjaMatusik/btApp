@@ -18,6 +18,7 @@ import android.graphics.Path;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -29,6 +30,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import javax.xml.datatype.Duration;
+
 public class MainActivity extends AppCompatActivity {
 
     private BluetoothChatService mBluetoothConnection;
@@ -36,6 +39,9 @@ public class MainActivity extends AppCompatActivity {
     DrawingView dv;
     private Paint mPaint;
     private Paint mSecondPaint;
+    private final String TAG = "MainActivity";
+    private float[] xy;
+    private float[] xy2;
 
 
     private ActivityCallback mActivityCallback = new ActivityCallback() {
@@ -44,27 +50,29 @@ public class MainActivity extends AppCompatActivity {
             readReceivedData(incomingMessage);
         }
 
-        private void readReceivedData(final String data){
-            String dataSplit[] = data.split(",");
+        private void readReceivedData(final String data) {
 
-            /*if(dataSplit.length == 1){
-                byte [] bitmapdata = dataSplit[0].getBytes();
-                Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapdata, 0, bitmapdata.length);
-                final Drawable drawable = new BitmapDrawable(getResources(), bitmap);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        dv.setBackground(drawable);
-                    }
-                });
-            }else */{
+            try {
+                String dataSplit[] = data.split(",");
 
                 final float x = Float.parseFloat(dataSplit[1]);
                 final float y = Float.parseFloat(dataSplit[2]);
                 String event = dataSplit[0];
                 String receivedMode = dataSplit[3];
 
+                Log.i(TAG, "x = " + x + "y = " + y);
+                Log.i(TAG, "recMode " + receivedMode);
+
                 switch (receivedMode) {
+                    case "s":
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Scale.getInstance().setxViewWidthSecond(x);
+                                Scale.getInstance().setyViewHeightSecond(y);
+                            }
+                        });
+                        break;
                     case "c":
                         runOnUiThread(new Runnable() {
                             @Override
@@ -118,7 +126,22 @@ public class MainActivity extends AppCompatActivity {
                         });
                         break;
                 }
+            }catch (Exception e){
+                Log.d(TAG, "Error while reading");
             }
+
+            /*if(dataSplit.length == 1){
+                byte [] bitmapdata = dataSplit[0].getBytes();
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapdata, 0, bitmapdata.length);
+                final Drawable drawable = new BitmapDrawable(getResources(), bitmap);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        dv.setBackground(drawable);
+                    }
+                });
+            }else */
+
         }
 
         @Override
@@ -139,10 +162,10 @@ public class MainActivity extends AppCompatActivity {
 
                     switch (status) {
                         case CONNECTED:
-                            Toast.makeText(MainActivity.this, "Connected",Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this, "Connected", Toast.LENGTH_LONG).show();
                             break;
                         case DISCONNECTED:
-                            Toast.makeText(MainActivity.this, "Disconnected",Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this, "Disconnected", Toast.LENGTH_LONG).show();
                             break;
                     }
 
@@ -176,6 +199,15 @@ public class MainActivity extends AppCompatActivity {
         mSecondPaint.setStrokeJoin(Paint.Join.ROUND);
         mSecondPaint.setStrokeCap(Paint.Cap.ROUND);
         mSecondPaint.setStrokeWidth(12);
+
+        /*Scale.getInstance().setxViewWidthSecond(dv.getWidth());
+        Scale.getInstance().setyViewHeigthSecond(dv.getHeight());
+        Scale.getInstance().setxViewWidthMine(dv.getWidth());
+        Scale.getInstance().setyViewHeightMine(dv.getHeight());
+
+        Toast.makeText(MainActivity.this, "x =  " + dv.getWidth() + " y = " + dv.getHeight(),Toast.LENGTH_LONG).show();
+           */
+
     }
 
 
@@ -221,6 +253,12 @@ public class MainActivity extends AppCompatActivity {
 
             mBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             mCanvas = new Canvas(mBitmap);
+
+            Scale.getInstance().setxViewWidthMine(mCanvas.getWidth());
+            Scale.getInstance().setyViewHeightMine(mCanvas.getHeight());
+            Scale.getInstance().setxViewWidthSecond(mCanvas.getWidth());
+            Scale.getInstance().setyViewHeightSecond(mCanvas.getHeight());
+
         }
 
         @Override
@@ -245,22 +283,22 @@ public class MainActivity extends AppCompatActivity {
             setDrawingCacheEnabled(true);
         }
 
-        public void saveDrawing(DrawingView drawView){
+        public void saveDrawing(DrawingView drawView) {
             try {
                 drawView.setDrawingCacheEnabled(true);
                 Bitmap bitmap = drawView.getDrawingCache();
                 File f = null;
-                if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
-                    File file = new File(Environment.getExternalStorageDirectory(),"TTImages_cache");
-                    if(!file.exists()){
+                if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                    File file = new File(Environment.getExternalStorageDirectory(), "TTImages_cache");
+                    if (!file.exists()) {
                         file.mkdirs();
                     }
-                    f = new File(file.getAbsolutePath()+file.separator+ "filename"+".png");
+                    f = new File(file.getAbsolutePath() + file.separator + "filename" + ".png");
                 }
                 FileOutputStream ostream = new FileOutputStream(f);
                 bitmap.compress(Bitmap.CompressFormat.PNG, 10, ostream);
                 ostream.close();
-            } catch(Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
@@ -278,7 +316,8 @@ public class MainActivity extends AppCompatActivity {
 
         private void touch_start_second(float x, float y) {
             mSecondPath.reset();
-            mSecondPath.moveTo(x, y);
+            xy = Scale.getInstance().getValues(x, y);
+            mSecondPath.moveTo(xy[0], xy[1]);
             mX2 = x;
             mY2 = y;
         }
@@ -300,12 +339,14 @@ public class MainActivity extends AppCompatActivity {
             float dx = Math.abs(x - mX2);
             float dy = Math.abs(y - mY2);
             if (dx >= TOUCH_TOLERANCE || dy >= TOUCH_TOLERANCE) {
-                mSecondPath.quadTo(mX2, mY2, (x + mX2) / 2, (y + mY2) / 2);
+                xy = Scale.getInstance().getValues(mX2, mY2);
+                xy2 = Scale.getInstance().getValues((x + mX2) / 2, (y + mY2) / 2);
+                mSecondPath.quadTo(xy[0], xy[1], xy2[0], xy2[1]);
                 mX2 = x;
                 mY2 = y;
 
                 circleSecondPath.reset();
-                circleSecondPath.addCircle(mX2, mY2, 30, Path.Direction.CW);
+                circleSecondPath.addCircle(xy[0], xy[1], 30, Path.Direction.CW);
             }
         }
 
@@ -319,7 +360,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void touch_up_second() {
-            mSecondPath.lineTo(mX2, mY2);
+            xy = Scale.getInstance().getValues(mX2, mY2);
+            mSecondPath.lineTo(xy[0], xy[1]);
             circleSecondPath.reset();
             // commit the path to our offscreen
             mCanvas.drawPath(mSecondPath, mSecondPaint);
@@ -338,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
                     invalidate();
                     action = "start," + x + "," + y + "," + mode;
                     byte[] bytesS = action.getBytes();
-                    if(mBluetoothConnection != null) {
+                    if (mBluetoothConnection != null) {
                         mBluetoothConnection.write(bytesS);
                     }
                     break;
@@ -347,7 +389,7 @@ public class MainActivity extends AppCompatActivity {
                     invalidate();
                     action = "move," + x + "," + y + "," + mode;
                     byte[] bytesM = action.getBytes();
-                    if(mBluetoothConnection != null){
+                    if (mBluetoothConnection != null) {
                         mBluetoothConnection.write(bytesM);
                     }
                     break;
@@ -356,7 +398,7 @@ public class MainActivity extends AppCompatActivity {
                     invalidate();
                     action = "up," + x + "," + y + "," + mode;
                     byte[] bytesU = action.getBytes();
-                    if(mBluetoothConnection != null) {
+                    if (mBluetoothConnection != null) {
                         mBluetoothConnection.write(bytesU);
                     }
                     break;
@@ -370,7 +412,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int ERASE_MENU_ID = Menu.FIRST + 2;
     private static final int DRAW_MENU_ID = Menu.FIRST + 3;
     private static final int CHOOSE_FROM_GALLERY = Menu.FIRST + 4;
-    private static final int TAKE_PICTURE = Menu.FIRST + 5;
+    private static final int SET_SCALE = Menu.FIRST + 5;
     private static final int BLUETOOTH_CONNECTION_ID = Menu.FIRST + 6;
 
     @Override
@@ -382,7 +424,7 @@ public class MainActivity extends AppCompatActivity {
         menu.add(0, ERASE_MENU_ID, 0, "Erase").setShortcut('5', 'e');
         menu.add(0, DRAW_MENU_ID, 0, "Draw").setShortcut('6', 'd');
         menu.add(0, CHOOSE_FROM_GALLERY, 0, "Choose picture from gallery").setShortcut('7', 'b');
-        //menu.add(0, TAKE_PICTURE, 0, "Take a picture").setShortcut('9', 'p');
+        menu.add(0, SET_SCALE, 0, "Set scale").setShortcut('9', 'p');
         menu.add(0, BLUETOOTH_CONNECTION_ID, 0, "Bluetooth connection").setShortcut('8', 'a');
 
         return true;
@@ -403,7 +445,13 @@ public class MainActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             case CLEAR_MENU_ID:
                 dv.mode = "c";
+                if(mBluetoothConnection != null) {
+                    String action = "0,0,0," + dv.mode;
+                    byte[] bytesC = action.getBytes();
+                    mBluetoothConnection.write(bytesC);
+                }
                 dv.clearDrawing();
+                dv.mode = "d";
                 return true;
             case SAVE_MENU_ID:
                 dv.saveDrawing(dv);
@@ -427,12 +475,17 @@ public class MainActivity extends AppCompatActivity {
             case CHOOSE_FROM_GALLERY:
                 Intent pickPhoto = new Intent(Intent.ACTION_PICK,
                         android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                startActivityForResult(pickPhoto , 1);
+                startActivityForResult(pickPhoto, 1);
                 return true;
-            /*case TAKE_PICTURE:
-                Intent takePicture = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                startActivityForResult(takePicture, 0);
-                return true;*/
+            case SET_SCALE:
+                dv.mode = "s";
+                String action = "0," + Scale.getInstance().getxViewWidthMine() + "," + Scale.getInstance().getyViewHeightMine() + "," + dv.mode;
+                byte[] bytesS = action.getBytes();
+                if(mBluetoothConnection != null){
+                    mBluetoothConnection.write(bytesS);
+                }
+                dv.mode = "d";
+                return true;
             case BLUETOOTH_CONNECTION_ID:
                 dialog = new ConnectionDialog(MainActivity.this, mActivityCallback);
                 dialog.show();
@@ -444,7 +497,7 @@ public class MainActivity extends AppCompatActivity {
 
     protected void onActivityResult(int requestCode, int resultCode, Intent imageReturnedIntent) {
         super.onActivityResult(requestCode, resultCode, imageReturnedIntent);
-        switch(requestCode) {
+        switch (requestCode) {
             /*case 0:
                 if(resultCode == RESULT_OK){
                     Uri selectedImage = imageReturnedIntent.getData();
@@ -459,7 +512,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;*/
             case 1:
-                if(resultCode == RESULT_OK){
+                if (resultCode == RESULT_OK) {
                     Uri selectedImage = imageReturnedIntent.getData();
                     try {
                         Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImage);
@@ -475,7 +528,7 @@ public class MainActivity extends AppCompatActivity {
                         }*/
 
                     } catch (IOException e) {
-                        Toast.makeText(MainActivity.this, "You can't set this image as background.",Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, "You can't set this image as background.", Toast.LENGTH_LONG).show();
                         e.printStackTrace();
                     }
 
